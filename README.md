@@ -18,7 +18,8 @@ Add this package to your `pubspec.yaml`:
 ```yaml
 dependencies:
   app_notification_handler:
-    path: ../packages/app_notification_handler
+    git:
+      url: https://github.com/Shahzad-Official/app_local_notification_handler.git
 ```
 
 ## Setup Guides
