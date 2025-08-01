@@ -206,19 +206,23 @@ print('Pending notifications: ${pending.length}');
 
 ### Android
 
-1. Add notification icon to `android/app/src/main/res/drawable/`
-2. For custom sounds, add sound files to `android/app/src/main/res/raw/`
-3. Ensure your `minSdkVersion` is at least 19
+**Essential Requirements:**
 
-**⚠️ Important:** Follow the [Android Setup Guide](./ANDROID_SETUP.md) for complete configuration including permissions, manifest setup, and troubleshooting.
+1. Add desugaring to `android/app/build.gradle`
+2. Add 3 permissions to `AndroidManifest.xml`
+3. Add 3 receivers to `AndroidManifest.xml`
+
+**⚠️ Important:** Follow the [Android Setup Guide](./ANDROID_SETUP.md) for the essential 5-minute configuration.
 
 ### iOS
 
-1. Request notification permissions in your app
-2. Add notification categories if using actionable notifications
-3. The package handles most iOS-specific configuration automatically
+**Essential Requirements:**
 
-**⚠️ Important:** Follow the [iOS Setup Guide](./IOS_SETUP.md) for complete configuration including Info.plist setup, capabilities, and custom sounds.
+1. Set iOS deployment target to 12.0+ in `ios/Podfile`
+2. Add UIBackgroundModes to `ios/Runner/Info.plist`
+3. Add delegate line to `ios/Runner/AppDelegate.swift`
+
+**⚠️ Important:** Follow the [iOS Setup Guide](./IOS_SETUP.md) for the essential 3-minute configuration.
 
 ## Example
 
