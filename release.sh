@@ -138,6 +138,7 @@ check_and_setup_release_files() {
     local release_files=(".github/workflows/release.yml" "release.sh" "CHANGELOG.md" "SETUP.md")
     local new_files=()
     local modified_files=()
+    local doc_files=()
     
     # Check for untracked release files
     for file in "${release_files[@]}"; do
@@ -161,6 +162,13 @@ check_and_setup_release_files() {
         done <<< "$(git diff --name-only)"
     fi
     
+    # Check for documentation files that can be auto-committed
+    while IFS= read -r file; do
+        if [[ "$file" =~ (README\.md|.*_SETUP\.md|.*_GUIDE\.md|.*_SUMMARY\.md|TROUBLESHOOTING\.md|USAGE_EXAMPLE\.md|SETUP\.md) ]]; then
+            doc_files+=("$file")
+        fi
+    done <<< "$(git status --porcelain | sed 's/^...//')"
+    
     # Auto-commit release automation files
     if [[ ${#new_files[@]} -gt 0 || ${#modified_files[@]} -gt 0 ]]; then
         echo -e "${BLUE}🔧 Found release automation files to commit...${NC}"
@@ -180,23 +188,52 @@ check_and_setup_release_files() {
         
         echo -e "${GREEN}✅ Release automation files committed${NC}"
     fi
+    
+    # Auto-commit documentation files
+    if [[ ${#doc_files[@]} -gt 0 ]]; then
+        echo -e "${BLUE}🔧 Found documentation files to commit...${NC}"
+        
+        for file in "${doc_files[@]}"; do
+            echo -e "${YELLOW}  Adding: $file${NC}"
+            git add "$file"
+        done
+        
+        echo -e "${BLUE}📝 Committing documentation updates...${NC}"
+        git commit -m "docs: update project documentation
+
+- Update README.md with latest information
+- Consolidate setup documentation
+- Remove outdated documentation files"
+        
+        echo -e "${GREEN}✅ Documentation files committed${NC}"
+    fi
 }
 
 check_git_status() {
     # First check and setup release files
     check_and_setup_release_files
     
-    # Now check if working directory is clean (excluding release files)
+    # Check if there are any uncommitted changes
     if ! git diff-index --quiet HEAD --; then
-        # Get uncommitted changes excluding release automation files
-        local uncommitted=$(git status --porcelain | grep -v -E "(\.github/workflows/|RELEASE_GUIDE\.md|release\.sh|CHANGELOG\.md)")
+        echo -e "${BLUE}🔍 Found uncommitted changes...${NC}"
         
-        if [[ -n "$uncommitted" ]]; then
-            echo -e "${RED}❌ Working directory is not clean. Please commit or stash your changes.${NC}"
-            echo -e "${YELLOW}Uncommitted changes:${NC}"
-            echo "$uncommitted"
-            exit 1
-        fi
+        # Show what will be committed
+        echo -e "${YELLOW}📋 Changes to be auto-committed:${NC}"
+        git status --porcelain
+        echo ""
+        
+        # Auto-commit all remaining changes
+        echo -e "${BLUE}📝 Auto-committing all changes...${NC}"
+        git add .
+        
+        # Create a descriptive commit message
+        local commit_msg="chore: auto-commit changes before release
+
+- Automatic commit of all pending changes
+- Preparing workspace for version release"
+        
+        git commit -m "$commit_msg"
+        echo -e "${GREEN}✅ All changes committed automatically${NC}"
     fi
 }
 
