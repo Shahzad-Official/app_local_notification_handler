@@ -40,17 +40,17 @@ get_current_version() {
 bump_version() {
     local version_type=$1
     local current_version=$(get_current_version)
-    
+
     if [[ ! $current_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         echo -e "${RED}❌ Invalid version format in pubspec.yaml: $current_version${NC}"
         exit 1
     fi
-    
+
     IFS='.' read -ra VERSION_PARTS <<< "$current_version"
     local major=${VERSION_PARTS[0]}
     local minor=${VERSION_PARTS[1]}
     local patch=${VERSION_PARTS[2]}
-    
+
     case $version_type in
         "patch")
             ((patch++))
@@ -69,35 +69,49 @@ bump_version() {
             exit 1
             ;;
     esac
-    
+
     echo "$major.$minor.$patch"
+}
+# Update version and tag in README.md for dependency injection
+update_readme_version_and_tag() {
+    local version=$1
+    local tag_name=$2
+    if [[ ! -f README.md ]]; then
+        echo -e "${YELLOW}⚠️  README.md not found, skipping update.${NC}"
+        return
+    fi
+
+    # Update pubspec dependency version (if present)
+    if grep -qE 'app_local_notification_handler: *[\^0-9\.]+' README.md; then
+        sed -i '' -E "s/(app_local_notification_handler: *)[\^0-9\.]+/\\1^$version/" README.md
+    fi
+
+    # Update tag in pub.dev badge or GitHub badge (if present)
+    if grep -qE 'badge.*app_local_notification_handler.*tag' README.md; then
+        sed -i '' -E "s/(badge.*app_local_notification_handler.*tag=)v?[0-9]+\.[0-9]+\.[0-9]+/\\1$tag_name/" README.md
+    fi
+
+    # Optionally, update any version mentions in install instructions
+    if grep -qE 'pub add app_local_notification_handler@[\^0-9\.]+' README.md; then
+        sed -i '' -E "s/(pub add app_local_notification_handler@)[\^0-9\.]+/\\1^$version/" README.md
+    fi
 }
 
 update_pubspec_version() {
-    local new_version=$1
-    
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
-        sed -i '' "s/^version:.*/version: $new_version/" $PUBSPEC_FILE
-    else
-        # Linux
-        sed -i "s/^version:.*/version: $new_version/" $PUBSPEC_FILE
-    fi
+    local version=$1
+    sed -i '' "s/^version: .*/version: $version/" $PUBSPEC_FILE
 }
 
 update_changelog() {
     local version=$1
-    local date=$(date +"%Y-%m-%d")
+    local date=$(date '+%Y-%m-%d')
     
     if [[ ! -f $CHANGELOG_FILE ]]; then
-        echo -e "${YELLOW}⚠️  Creating new CHANGELOG.md${NC}"
+        # Create new changelog
         cat > $CHANGELOG_FILE << EOF
 # Changelog
 
 All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [$version] - $date
 
@@ -121,7 +135,7 @@ EOF
 
 check_and_setup_release_files() {
     # Check for release automation files and commit them automatically
-    local release_files=(".github/workflows/release.yml" "RELEASE_GUIDE.md" "release.sh" "CHANGELOG.md")
+    local release_files=(".github/workflows/release.yml" "release.sh" "CHANGELOG.md" "SETUP.md")
     local new_files=()
     local modified_files=()
     
@@ -131,6 +145,12 @@ check_and_setup_release_files() {
             new_files+=("$file")
         fi
     done
+
+    # If release.sh changed, update SETUP.md
+    if git diff --name-only | grep -q "release.sh"; then
+        echo -e "${BLUE}🔄 release.sh changed, updating SETUP.md...${NC}"
+        ./update_setup_md.sh || echo -e "${YELLOW}⚠️  Could not update SETUP.md automatically. Please update manually.${NC}"
+    fi
     
     # Check for modified release files (including CHANGELOG.md)
     if git diff --name-only | grep -E "(\.github/workflows/|RELEASE_GUIDE\.md|release\.sh|CHANGELOG\.md)" >/dev/null; then
