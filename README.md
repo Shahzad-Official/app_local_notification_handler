@@ -1,233 +1,324 @@
-# App Notification Handler
+# Firebase FCM Platform Setup Guide
 
-A comprehensive Flutter package for handling local notifications with scheduling, permissions, and timezone support. This package provides a clean and easy-to-use API for managing notifications in your Flutter applications.
+This document provides detailed platform-specific setup instructions for Firebase Cloud Messaging (FCM) with Flutter.
 
-## Features
+## Prerequisites
 
-- **Easy Setup**: Simple initialization with customizable configuration
-- **Permission Handling**: Automatic permission checking with user-friendly dialogs
-- **Timezone Support**: Full timezone support for accurate scheduling
-- **Multiple Notification Types**: Support for simple, scheduled, actionable, and progress notifications
-- **Cross-Platform**: Works on both Android and iOS
-- **Flexible Scheduling**: Various scheduling options including daily repeats and custom intervals
+1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
+2. Add your Android/iOS app to the Firebase project
+3. Download configuration files:
+   - Android: `google-services.json`
+   - iOS: `GoogleService-Info.plist`
+4. Place the files in the appropriate directories:
+   - Android: `android/app/google-services.json`
+   - iOS: `ios/Runner/GoogleService-Info.plist`
 
-## Installation
+---
 
-Add this package to your `pubspec.yaml`:
+## Android Setup for Notifications
 
-```yaml
-dependencies:
-  app_notification_handler:
-    git:
-      url: https://github.com/Shahzad-Official/app_local_notification_handler.git
-```
+### Required Configuration
 
-## Setup Guides
+#### 1. Update `android/app/build.gradle`:
 
-For complete platform setup instructions, follow these guides:
+```gradle
+android {
+    compileSdk 35
 
-- **[📖 Complete Setup Guide](./SETUP_GUIDE.md)** - Start here for full implementation
-- **[🤖 Android Setup](./ANDROID_SETUP.md)** - Detailed Android configuration
-- **[🍎 iOS Setup](./IOS_SETUP.md)** - Detailed iOS configuration
-- **[🔧 Troubleshooting](./TROUBLESHOOTING.md)** - Common issues and solutions
+    defaultConfig {
+        minSdkVersion 23
+        // ... other configurations
+    }
 
-## Usage
-
-### 1. Initialize the Notification Handler
-
-```dart
-import 'package:app_notification_handler/app_notification_handler.dart';
-
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize timezone
-  await NotificationHelper.initializeTimezone();
-
-  // Initialize notification handler
-  await AppNotificationHandler.instance.initialize(
-    config: const NotificationConfig(
-      androidIcon: '@mipmap/ic_launcher',
-      onNotificationTap: _onNotificationTap,
-      onBackgroundNotificationTap: notificationTapBackground,
-    ),
-    navigatorKey: navigatorKey, // Your global navigator key
-  );
-
-  runApp(MyApp());
+    compileOptions {
+        coreLibraryDesugaringEnabled true
+        // ... other options
+    }
 }
 
-void _onNotificationTap(NotificationResponse response) {
-  // Handle notification tap
-  print('Notification tapped: ${response.payload}');
+plugins {
+    id 'com.google.gms.google-services'
+}
+
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+    // ... other dependencies
 }
 ```
 
-### 2. Show Simple Notification
+#### 2. Add to project-level `android/build.gradle`:
 
-```dart
-await NotificationService.showSimpleNotification(
-  title: 'Hello!',
-  body: 'This is a simple notification',
-  payload: 'simple_payload',
-);
+```gradle
+buildscript {
+    dependencies {
+        classpath 'com.google.gms:google-services:4.4.2'
+        // ... other dependencies
+    }
+}
 ```
 
-### 3. Schedule Notification
+#### 3. Add permissions to `android/app/src/main/AndroidManifest.xml`:
 
-```dart
-// Schedule for tomorrow at 9 AM
-final scheduledTime = NotificationHelper.nextInstanceOf(9, 0, 0);
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-await NotificationService.scheduleNotification(
-  id: 1,
-  title: 'Good Morning!',
-  body: 'Time to start your day',
-  scheduledTime: scheduledTime,
-  repeatDaily: true,
-);
+    <!-- FCM Permissions -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <application>
+        <!-- Your app content -->
+    </application>
+</manifest>
 ```
 
-### 4. Show Actionable Notification
+### Optional Configuration
 
-```dart
-await NotificationService.showActionNotification(
-  title: 'Do you accept?',
-  body: 'Please choose an option',
-  actions: [
-    const AndroidNotificationAction('ACCEPT', 'Accept'),
-    const AndroidNotificationAction('DECLINE', 'Decline'),
-  ],
-);
+Add these meta-data tags inside the `<application>` tag in `AndroidManifest.xml`:
+
+```xml
+<application>
+    <!-- Default notification icon and color -->
+    <meta-data
+        android:name="com.google.firebase.messaging.default_notification_icon"
+        android:resource="@mipmap/ic_launcher" />
+    <meta-data
+        android:name="com.google.firebase.messaging.default_notification_color"
+        android:resource="@android:color/white" />
+
+    <!-- Default notification channel -->
+    <!-- ⚠️ IMPORTANT: This value must match your Flutter channelId -->
+    <meta-data
+        android:name="com.google.firebase.messaging.default_notification_channel_id"
+        android:value="street_channel_id" />
+
+    <!-- Your other app content -->
+</application>
 ```
 
-### 5. Helper Functions
+> **⚠️ IMPORTANT - Channel ID Consistency:**
+>
+> The `channel_id` value specified in the `AndroidManifest.xml` file **MUST match** the `channelId` used in your Flutter notification initialization code.
+>
+> For example, if you use `"street_channel_id"` in the manifest (as shown above), you must use the same value when initializing your notification channels in Flutter:
+>
+> ```dart
+> await AppNotificationHandler.initialize(
+>   NotificationConfig(
+>     defaultChannelId: 'street_channel_id', // Same as in AndroidManifest.xml
+>     defaultChannelName: 'Street Notifications',
+>     defaultChannelDescription: 'Important street app notifications',
+>   ),
+> );
+> ```
+>
+> **Why this matters:**
+>
+> - Firebase uses the manifest channel ID for background notifications
+> - Your app uses the Flutter channel ID for foreground notifications
+> - Mismatched IDs can cause notifications to not display properly or appear in separate channels
 
-```dart
-// Schedule 5 minutes from now
-final fiveMinutesLater = NotificationHelper.minutesFromNow(5);
+---
 
-// Schedule for next Monday at 2 PM
-final nextMonday = NotificationHelper.nextInstanceOfWeekday(1, 14, 0);
+## iOS Setup
 
-// Create weekly schedule for multiple days
-final weeklySchedule = NotificationHelper.createWeeklySchedule(
-  [1, 3, 5], // Monday, Wednesday, Friday
-  9, // 9 AM
-  0, // 0 minutes
-);
+### Required Configuration
+
+#### 1. Add background modes to `ios/Runner/Info.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <!-- Other Info.plist content -->
+
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>remote-notification</string>
+        <string>background-processing</string>
+        <string>fetch</string>
+        <string>processing</string>
+    </array>
+
+    <!-- Other Info.plist content -->
+</dict>
+</plist>
 ```
 
-## Configuration Options
+#### 2. Update `ios/Runner/AppDelegate.swift`:
 
-### NotificationConfig
+```swift
+import UIKit
+import Flutter
+import flutter_local_notifications // ✅ Required for notification plugin
 
-```dart
-const NotificationConfig(
-  androidIcon: '@mipmap/ic_launcher', // Android notification icon
-  iosCategories: [...], // iOS notification categories
-  onNotificationTap: _onNotificationTap, // Foreground tap handler
-  onBackgroundNotificationTap: notificationTapBackground, // Background tap handler
-)
+@main
+@objc class AppDelegate: FlutterAppDelegate {
+  override func application(
+    _ application: UIApplication,
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+  ) -> Bool {
+    GeneratedPluginRegistrant.register(with: self)
+
+    // ✅ Set delegate for UNUserNotificationCenter (required for foreground notifications)
+    if #available(iOS 10.0, *) {
+      UNUserNotificationCenter.current().delegate = self
+    }
+
+    // ✅ Enable background isolate to handle action taps (optional but recommended)
+    FlutterLocalNotificationsPlugin.setPluginRegistrantCallback { registry in
+      GeneratedPluginRegistrant.register(with: registry)
+    }
+
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+}
 ```
 
-### Custom iOS Categories
+---
 
-```dart
-final iosCategories = [
-  DarwinNotificationCategory(
-    'habit_category',
-    actions: [
-      DarwinNotificationAction.plain('complete', 'Mark Complete'),
-      DarwinNotificationAction.plain('snooze', 'Snooze'),
-    ],
-    options: const {
-      DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
-    },
-  ),
-];
-```
+## App Store Connect Setup for Firebase Push Notifications
 
-## Permission Handling
+### For iOS Production Notifications
 
-The package automatically handles permission requests. When a notification method is called, it will:
+#### Step 1: Create APNs Key in Apple Developer Account
 
-1. Check if notifications are enabled
-2. Request permissions if needed (iOS)
-3. Show a dialog prompting user to enable notifications in settings if disabled
+1. Go to [Apple Developer Console](https://developer.apple.com/account)
+2. Navigate to **Certificates, Identifiers & Profiles**
+3. Select **Keys** from the sidebar
+4. Click the **"+"** button to create a new key
+5. Give your key a name (e.g., "Firebase Push Notifications")
+6. Select **Apple Push Notifications service (APNs)** checkbox
+7. Configure push notifications:
+   - Select both **sandbox** and **production** environments to work on both
+   - Select your team as default
+8. Click **Continue** and then **Register**
+9. **Download the `.p8` key file** (you can only download this once!)
+10. **Note down the Key ID** (displayed after creation)
+11. **Note down your Team ID** (found in the top-right corner of the developer portal)
 
-You can also manually check permissions:
+#### Step 2: Configure Firebase with APNs Key
 
-```dart
-final hasPermission = await AppNotificationHandler.instance.checkNotificationPermission();
-```
+1. Go to your [Firebase Console](https://console.firebase.google.com/)
+2. Select your project and go to **Project Settings** (gear icon)
+3. Navigate to the **Cloud Messaging** tab
+4. Scroll down to the **iOS app configuration** section
+5. In the **APNs certificates** section, click **Upload**
+6. Choose **APNs auth key** option (recommended over certificates)
+7. Upload your downloaded `.p8` file
+8. Enter the following information:
+   - **Key ID**: The Key ID you noted from Step 1
+   - **Team ID**: Your Apple Developer Team ID
+9. Click **Upload** to save the configuration
 
-## Advanced Features
+#### Step 3: Verify Configuration
 
-### Progress Notifications (Android)
+1. **Test with Firebase Console:**
 
-```dart
-await NotificationService.showProgressNotification(
-  title: 'Downloading...',
-  body: 'Download in progress',
-  maxProgress: 100,
-  currentProgress: 45,
-);
-```
+   - Go to **Cloud Messaging** in Firebase Console
+   - Click **Send your first message**
+   - Select your iOS app as the target
+   - Send a test notification
 
-### Custom Sound Notifications
+2. **Check both environments:**
 
-```dart
-await NotificationService.showNotificationWithCustomSound(
-  title: 'Custom Sound',
-  body: 'This notification has a custom sound',
-  soundFile: 'notification_sound', // File in android/app/src/main/res/raw/
-);
-```
+   - Test in **debug mode** (sandbox environment)
+   - Test in **release/production mode** (production environment)
 
-### Cancel Notifications
+3. **Common verification steps:**
+   - Ensure your app's Bundle ID matches the one in Firebase and Apple Developer Console
+   - Verify the `.p8` key is correctly uploaded with the right Key ID and Team ID
+   - Check that your iOS app has the correct provisioning profile
 
-```dart
-// Cancel specific notification
-await NotificationService.cancelNotification(1);
+---
 
-// Cancel all notifications
-await NotificationService.cancelAllNotifications();
-```
+## Troubleshooting Platform Setup
 
-### Get Pending Notifications
+### Android Issues
 
-```dart
-final pending = await NotificationService.getPendingNotifications();
-print('Pending notifications: ${pending.length}');
-```
+1. **Build errors:**
 
-## Platform Setup
+   - Ensure `google-services.json` is in the correct location: `android/app/`
+   - Check that Google Services plugin is applied: `apply plugin: 'com.google.gms.google-services'`
+   - Verify compileSdk and minSdk versions meet requirements
 
-### Android
+2. **Notifications not showing:**
+   - Check if app has notification permissions
+   - Verify FCM permissions are added to AndroidManifest.xml
+   - Ensure notification channels are properly configured
+   - **Verify channel_id consistency**: Make sure the `default_notification_channel_id` in AndroidManifest.xml matches the `channelId` used in Flutter notification initialization
 
-**Essential Requirements:**
+### iOS Issues
 
-1. Add desugaring to `android/app/build.gradle`
-2. Add 3 permissions to `AndroidManifest.xml`
-3. Add 3 receivers to `AndroidManifest.xml`
+1. **Build errors:**
 
-**⚠️ Important:** Follow the [Android Setup Guide](./ANDROID_SETUP.md) for the essential 5-minute configuration.
+   - Ensure `GoogleService-Info.plist` is added to the iOS project in Xcode
+   - Check that the bundle identifier matches Firebase configuration
+   - Verify Info.plist has correct background modes
 
-### iOS
+2. **Notifications not working:**
 
-**Essential Requirements:**
+   - Check APNs key configuration in Firebase Console
+   - Ensure notification permissions are granted
+   - Verify AppDelegate.swift is properly configured
+   - Test with both debug and release builds
 
-1. Set iOS deployment target to 12.0+ in `ios/Podfile`
-2. Add UIBackgroundModes to `ios/Runner/Info.plist`
-3. Add delegate line to `ios/Runner/AppDelegate.swift`
+3. **APNs Key Issues:**
+   - Double-check Key ID and Team ID in Firebase Console
+   - Ensure the `.p8` file was uploaded correctly
+   - Verify the key has APNs service enabled
 
-**⚠️ Important:** Follow the [iOS Setup Guide](./IOS_SETUP.md) for the essential 3-minute configuration.
+### General Tips
 
-## Example
+- Always test notifications in different app states: foreground, background, and terminated
+- Use Firebase Console's messaging tool for initial testing
+- Check device logs for detailed error messages
+- Ensure your app is properly signed for distribution when testing production notifications
 
-See the `/example` folder for a complete example application demonstrating all features of this package.
+### Channel ID Configuration Issues
 
-## License
+**Problem**: Notifications appear in different channels or some don't show at all.
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+**Solution**: Ensure channel ID consistency between AndroidManifest.xml and Flutter code:
+
+1. **Check AndroidManifest.xml**:
+
+   ```xml
+   <meta-data
+       android:name="com.google.firebase.messaging.default_notification_channel_id"
+       android:value="your_channel_id" />
+   ```
+
+2. **Check Flutter initialization**:
+
+   ```dart
+   await AppNotificationHandler.instance.initialize(
+     config: NotificationConfig(
+       defaultChannelId: 'your_channel_id', // Must match manifest
+       // ... other settings
+     ),
+   );
+   ```
+
+3. **Verify on device**: Go to device Settings > Apps > [Your App] > Notifications to see if multiple channels exist.
+
+**Additional checks**:
+
+- Clear app data and reinstall to reset notification channels
+- Test with a fresh Firebase Console message
+- Check if background and foreground notifications use different channels
+
+---
+
+## Next Steps
+
+After completing the platform setup:
+
+1. Return to the main [Firebase FCM Integration Guide](FIREBASE_README.md)
+2. Follow the Flutter implementation examples
+3. Configure callbacks and message handling
+4. Test your implementation thoroughly
+
+For Flutter-specific implementation details, see the [main Firebase README](FIREBASE_README.md).
