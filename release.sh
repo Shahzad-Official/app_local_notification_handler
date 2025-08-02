@@ -350,6 +350,14 @@ perform_release() {
 Version $new_version release with automated release system"
     
     echo -e "${BLUE}📤 Pushing changes to GitHub...${NC}"
+    
+    # Pull any remote changes first to avoid conflicts
+    echo -e "${BLUE}🔄 Pulling latest changes from remote...${NC}"
+    if ! git pull origin $(git branch --show-current) --no-edit; then
+        echo -e "${YELLOW}⚠️  Auto-merge failed, trying rebase...${NC}"
+        git pull --rebase origin $(git branch --show-current)
+    fi
+    
     git push origin $(git branch --show-current)
     
     echo -e "${BLUE}📤 Pushing tag to GitHub...${NC}"
