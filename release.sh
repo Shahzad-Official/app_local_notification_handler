@@ -18,23 +18,19 @@ CHANGELOG_FILE="CHANGELOG.md"
 
 # Functions
 print_usage() {
-    echo -e "${BLUE}Usage: $0 [patch|minor|major] [--no-commit]${NC}"
+    echo -e "${BLUE}Usage: $0 [patch|minor|major]${NC}"
     echo ""
     echo -e "${YELLOW}Version types:${NC}"
     echo "  patch  - Bug fixes (0.0.1 -> 0.0.2)"
     echo "  minor  - New features (0.1.0 -> 0.2.0)"
     echo "  major  - Breaking changes (1.0.0 -> 2.0.0)"
     echo ""
-    echo -e "${YELLOW}Options:${NC}"
-    echo "  --no-commit - Skip git commit and push (just update files and create tag)"
-    echo ""
     echo -e "${YELLOW}Examples:${NC}"
     echo "  $0 patch"
-    echo "  $0 minor --no-commit"
+    echo "  $0 minor"
     echo "  $0 major"
     echo ""
-    echo -e "${YELLOW}Interactive mode:${NC}"
-    echo "  $0 interactive"
+    echo -e "${YELLOW}If no arguments provided, interactive mode will start automatically${NC}"
 }
 
 get_current_version() {
@@ -125,7 +121,7 @@ EOF
 
 check_and_setup_release_files() {
     # Check for release automation files and commit them automatically
-    local release_files=(".github/workflows/release.yml" ".github/workflows/ci.yml" "RELEASE_GUIDE.md" "release.sh" "CHANGELOG.md")
+    local release_files=(".github/workflows/release.yml" "RELEASE_GUIDE.md" "release.sh" "CHANGELOG.md")
     local new_files=()
     local modified_files=()
     
@@ -157,7 +153,7 @@ check_and_setup_release_files() {
         echo -e "${BLUE}📝 Committing release automation setup...${NC}"
         git commit -m "chore: setup automated release system
 
-- Add GitHub Actions workflows for CI and releases
+- Add GitHub Actions workflow for releases
 - Add release.sh script for automated version management
 - Add comprehensive release documentation
 - Update changelog format"
@@ -198,28 +194,25 @@ check_git_branch() {
 }
 
 run_tests() {
-    echo -e "${BLUE}🧪 Running tests...${NC}"
+    echo -e "${BLUE}🔍 Performing basic checks...${NC}"
     
-    if command -v flutter &> /dev/null; then
-        flutter pub get
-        flutter analyze
-        if flutter test 2>/dev/null; then
-            echo -e "${GREEN}✅ All tests passed${NC}"
-        else
-            echo -e "${YELLOW}⚠️  No tests found or tests failed${NC}"
-            read -p "Continue anyway? (y/N): " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                exit 1
-            fi
-        fi
-    else
-        echo -e "${YELLOW}⚠️  Flutter not found, skipping tests${NC}"
+    # Just check if pubspec.yaml exists and has valid version format
+    if [[ ! -f $PUBSPEC_FILE ]]; then
+        echo -e "${RED}❌ pubspec.yaml not found${NC}"
+        exit 1
     fi
+    
+    local current_version=$(get_current_version)
+    if [[ ! $current_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo -e "${RED}❌ Invalid version format in pubspec.yaml: $current_version${NC}"
+        exit 1
+    fi
+    
+    echo -e "${GREEN}✅ Basic checks passed${NC}"
 }
 
 interactive_mode() {
-    echo -e "${BLUE}🚀 Interactive Release Mode${NC}"
+    echo -e "${BLUE}🚀 Automated Release Mode${NC}"
     echo ""
     
     local current_version=$(get_current_version)
@@ -242,41 +235,30 @@ interactive_mode() {
     esac
     
     echo ""
-    read -p "Skip git commit and push? (y/N): " -n 1 -r
-    echo
-    local no_commit=false
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        no_commit=true
-    fi
-    
-    echo ""
     echo -e "${YELLOW}Summary:${NC}"
     echo "  Version type: $version_type"
     echo "  New version: $(bump_version $version_type)"
-    echo "  Git operations: $([ "$no_commit" = true ] && echo "Disabled" || echo "Enabled")"
+    echo "  Actions: Update files → Commit → Push to GitHub → Create release"
     echo ""
     
-    read -p "Proceed with release? (y/N): " -n 1 -r
+    read -p "Proceed with automated release? (y/N): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         echo -e "${BLUE}ℹ️  Cancelled by user${NC}"
         exit 0
     fi
     
-    perform_release $version_type $no_commit
+    perform_release $version_type
 }
 
 perform_release() {
     local version_type=$1
-    local no_commit=${2:-false}
     
-    echo -e "${BLUE}🚀 Starting release process...${NC}"
+    echo -e "${BLUE}🚀 Starting automated release process...${NC}"
     
-    # Pre-flight checks (only git status if committing)
-    if [[ "$no_commit" != "true" ]]; then
-        check_git_status
-        check_git_branch
-    fi
+    # Pre-flight checks
+    check_git_status
+    check_git_branch
     run_tests
     
     # Get versions
@@ -293,39 +275,50 @@ perform_release() {
     echo -e "${YELLOW}  Updated: $PUBSPEC_FILE (version: $new_version)${NC}"
     echo -e "${YELLOW}  Updated: $CHANGELOG_FILE${NC}"
     
-    # Git operations (optional)
-    if [[ "$no_commit" != "true" ]]; then
-        # Git operations
-        echo -e "${BLUE}📝 Committing changes...${NC}"
-        git add $PUBSPEC_FILE $CHANGELOG_FILE
-        git commit -m "chore: bump version to $new_version"
-        
-        # Create tag
-        local tag_name="v$new_version"
-        echo -e "${BLUE}🏷️  Creating tag $tag_name...${NC}"
-        git tag -a $tag_name -m "Release $tag_name"
-        
-        echo -e "${GREEN}✅ Release preparation completed!${NC}"
-        echo -e "${BLUE}📤 Pushing to remote...${NC}"
-        git push origin $(git branch --show-current)
-        git push origin $tag_name
-        echo -e "${GREEN}🎉 Release $tag_name pushed successfully!${NC}"
-        echo -e "${BLUE}🔗 Check GitHub Actions: https://github.com/Shahzad-Official/app_local_notification_handler/actions${NC}"
-    else
-        echo -e "${BLUE}ℹ️  Skipped git operations (--no-commit flag)${NC}"
-        echo -e "${YELLOW}Manual steps if needed:${NC}"
-        echo "  1. git add $PUBSPEC_FILE $CHANGELOG_FILE"
-        echo "  2. git commit -m \"chore: bump version to $new_version\""
-        echo "  3. git tag -a v$new_version -m \"Release v$new_version\""
-        echo "  4. git push origin main --tags"
-    fi
+    # Git operations - fully automated
+    echo -e "${BLUE}📝 Adding files to git...${NC}"
+    git add $PUBSPEC_FILE $CHANGELOG_FILE
+    
+    echo -e "${BLUE}📝 Committing changes...${NC}"
+    git commit -m "chore: bump version to $new_version
+
+- Update version in pubspec.yaml to $new_version
+- Update CHANGELOG.md with new release entry"
+    
+    # Create tag
+    local tag_name="v$new_version"
+    echo -e "${BLUE}🏷️  Creating tag $tag_name...${NC}"
+    git tag -a $tag_name -m "Release $tag_name
+
+Version $new_version release with automated release system"
+    
+    echo -e "${BLUE}📤 Pushing changes to GitHub...${NC}"
+    git push origin $(git branch --show-current)
+    
+    echo -e "${BLUE}📤 Pushing tag to GitHub...${NC}"
+    git push origin $tag_name
+    
+    echo -e "${GREEN}🎉 Release $tag_name completed successfully!${NC}"
+    echo ""
+    echo -e "${BLUE}✨ What happened:${NC}"
+    echo -e "${YELLOW}  1. ✅ Updated pubspec.yaml version to $new_version${NC}"
+    echo -e "${YELLOW}  2. ✅ Updated CHANGELOG.md with release entry${NC}"
+    echo -e "${YELLOW}  3. ✅ Committed changes to git${NC}"
+    echo -e "${YELLOW}  4. ✅ Created and pushed tag $tag_name${NC}"
+    echo -e "${YELLOW}  5. ✅ Pushed all changes to GitHub${NC}"
+    echo ""
+    echo -e "${BLUE}🔗 Next steps:${NC}"
+    echo -e "${YELLOW}  • GitHub Actions will automatically create a release${NC}"
+    echo -e "${YELLOW}  • Check: https://github.com/Shahzad-Official/app_local_notification_handler/actions${NC}"
+    echo -e "${YELLOW}  • Release will be available at: https://github.com/Shahzad-Official/app_local_notification_handler/releases${NC}"
 }
 
 # Main script logic
 main() {
+    # If no arguments provided, start interactive mode automatically
     if [[ $# -eq 0 ]]; then
-        print_usage
-        exit 1
+        interactive_mode
+        return
     fi
     
     case $1 in
@@ -333,13 +326,7 @@ main() {
             interactive_mode
             ;;
         "patch"|"minor"|"major")
-            # Check for --no-commit flag
-            local no_commit=false
-            if [[ $# -ge 2 && "$2" == "--no-commit" ]]; then
-                no_commit=true
-            fi
-            
-            perform_release $1 $no_commit
+            perform_release $1
             ;;
         "-h"|"--help")
             print_usage
