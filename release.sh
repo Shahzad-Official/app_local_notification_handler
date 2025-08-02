@@ -125,7 +125,7 @@ EOF
 
 check_and_setup_release_files() {
     # Check for release automation files and commit them automatically
-    local release_files=(".github/workflows/release.yml" ".github/workflows/ci.yml" "RELEASE_GUIDE.md" "release.sh")
+    local release_files=(".github/workflows/release.yml" ".github/workflows/ci.yml" "RELEASE_GUIDE.md" "release.sh" "CHANGELOG.md")
     local new_files=()
     local modified_files=()
     
@@ -136,10 +136,10 @@ check_and_setup_release_files() {
         fi
     done
     
-    # Check for modified release files
-    if git diff --name-only | grep -E "(\.github/workflows/|RELEASE_GUIDE\.md|release\.sh)" >/dev/null; then
+    # Check for modified release files (including CHANGELOG.md)
+    if git diff --name-only | grep -E "(\.github/workflows/|RELEASE_GUIDE\.md|release\.sh|CHANGELOG\.md)" >/dev/null; then
         while IFS= read -r file; do
-            if [[ "$file" =~ (\.github/workflows/|RELEASE_GUIDE\.md|release\.sh) ]]; then
+            if [[ "$file" =~ (\.github/workflows/|RELEASE_GUIDE\.md|release\.sh|CHANGELOG\.md) ]]; then
                 modified_files+=("$file")
             fi
         done <<< "$(git diff --name-only)"
@@ -173,7 +173,7 @@ check_git_status() {
     # Now check if working directory is clean (excluding release files)
     if ! git diff-index --quiet HEAD --; then
         # Get uncommitted changes excluding release automation files
-        local uncommitted=$(git status --porcelain | grep -v -E "(\.github/workflows/|RELEASE_GUIDE\.md|release\.sh)")
+        local uncommitted=$(git status --porcelain | grep -v -E "(\.github/workflows/|RELEASE_GUIDE\.md|release\.sh|CHANGELOG\.md)")
         
         if [[ -n "$uncommitted" ]]; then
             echo -e "${RED}❌ Working directory is not clean. Please commit or stash your changes.${NC}"
