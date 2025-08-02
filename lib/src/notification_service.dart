@@ -10,20 +10,21 @@ class NotificationService {
     required String title,
     required String body,
     String? payload,
-    String channelId = 'simple_channel_id',
-    String channelName = 'Simple Channel',
-    String channelDescription = 'Channel for simple notifications',
+    NotificationChannelConfig? customChannel,
   }) async {
-    const AndroidNotificationDetails androidDetails =
+    final channel =
+        customChannel ?? AppNotificationHandler.instance.simpleChannel;
+
+    final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-          'simple_channel_id',
-          'Simple Channel',
-          channelDescription: 'Channel for simple notifications',
-          importance: Importance.max,
-          priority: Priority.high,
+          channel.channelId,
+          channel.channelName,
+          channelDescription: channel.channelDescription,
+          importance: channel.importance,
+          priority: channel.priority,
         );
 
-    const NotificationDetails platformDetails = NotificationDetails(
+    final NotificationDetails platformDetails = NotificationDetails(
       android: androidDetails,
     );
 
@@ -44,10 +45,11 @@ class NotificationService {
     required tz.TZDateTime scheduledTime,
     bool repeatDaily = false,
     String? payload,
-    String channelId = 'scheduled_channel_id',
-    String channelName = 'Scheduled Channel',
-    String channelDescription = 'Channel for scheduled notifications',
+    NotificationChannelConfig? customChannel,
   }) async {
+    final channel =
+        customChannel ?? AppNotificationHandler.instance.scheduledChannel;
+
     await flutterLocalNotificationsPlugin.zonedSchedule(
       id,
       title,
@@ -55,11 +57,11 @@ class NotificationService {
       scheduledTime,
       NotificationDetails(
         android: AndroidNotificationDetails(
-          channelId,
-          channelName,
-          channelDescription: channelDescription,
-          importance: Importance.max,
-          priority: Priority.high,
+          channel.channelId,
+          channel.channelName,
+          channelDescription: channel.channelDescription,
+          importance: channel.importance,
+          priority: channel.priority,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -75,17 +77,18 @@ class NotificationService {
     required String body,
     List<AndroidNotificationAction>? actions,
     String? payload,
-    String channelId = 'action_channel_id',
-    String channelName = 'Action Channel',
-    String channelDescription = 'Channel with buttons',
+    NotificationChannelConfig? customChannel,
   }) async {
+    final channel =
+        customChannel ?? AppNotificationHandler.instance.actionChannel;
+
     final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-          channelId,
-          channelName,
-          channelDescription: channelDescription,
-          importance: Importance.max,
-          priority: Priority.high,
+          channel.channelId,
+          channel.channelName,
+          channelDescription: channel.channelDescription,
+          importance: channel.importance,
+          priority: channel.priority,
           actions:
               actions ??
               [
@@ -130,14 +133,18 @@ class NotificationService {
     required String body,
     required String soundFile,
     String? payload,
+    NotificationChannelConfig? customChannel,
   }) async {
+    final channel =
+        customChannel ?? AppNotificationHandler.instance.customSoundChannel;
+
     final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-          'custom_sound_channel',
-          'Custom Sound Channel',
-          channelDescription: 'Channel for notifications with custom sounds',
-          importance: Importance.max,
-          priority: Priority.high,
+          channel.channelId,
+          channel.channelName,
+          channelDescription: channel.channelDescription,
+          importance: channel.importance,
+          priority: channel.priority,
           sound: RawResourceAndroidNotificationSound(soundFile),
         );
 
@@ -170,14 +177,18 @@ class NotificationService {
     int currentProgress = 0,
     bool indeterminate = false,
     String? payload,
+    NotificationChannelConfig? customChannel,
   }) async {
+    final channel =
+        customChannel ?? AppNotificationHandler.instance.progressChannel;
+
     final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-          'progress_channel',
-          'Progress Channel',
-          channelDescription: 'Channel for progress notifications',
-          importance: Importance.low,
-          priority: Priority.low,
+          channel.channelId,
+          channel.channelName,
+          channelDescription: channel.channelDescription,
+          importance: channel.importance,
+          priority: channel.priority,
           showProgress: true,
           maxProgress: maxProgress,
           progress: currentProgress,

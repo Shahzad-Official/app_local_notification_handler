@@ -9,19 +9,106 @@ import 'package:timezone/data/latest.dart' as tz;
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
+/// Channel configuration for different notification types
+class NotificationChannelConfig {
+  final String channelId;
+  final String channelName;
+  final String channelDescription;
+  final Importance importance;
+  final Priority priority;
+
+  const NotificationChannelConfig({
+    required this.channelId,
+    required this.channelName,
+    required this.channelDescription,
+    this.importance = Importance.max,
+    this.priority = Priority.high,
+  });
+}
+
+/// Default channel configurations
+class DefaultChannels {
+  static const NotificationChannelConfig simple = NotificationChannelConfig(
+    channelId: 'simple_channel_id',
+    channelName: 'Simple Channel',
+    channelDescription: 'Channel for simple notifications',
+  );
+
+  static const NotificationChannelConfig scheduled = NotificationChannelConfig(
+    channelId: 'scheduled_channel_id',
+    channelName: 'Scheduled Channel',
+    channelDescription: 'Channel for scheduled notifications',
+  );
+
+  static const NotificationChannelConfig action = NotificationChannelConfig(
+    channelId: 'action_channel_id',
+    channelName: 'Action Channel',
+    channelDescription: 'Channel with buttons',
+  );
+
+  static const NotificationChannelConfig progress = NotificationChannelConfig(
+    channelId: 'progress_channel',
+    channelName: 'Progress Channel',
+    channelDescription: 'Channel for progress notifications',
+    importance: Importance.low,
+    priority: Priority.low,
+  );
+
+  static const NotificationChannelConfig customSound =
+      NotificationChannelConfig(
+        channelId: 'custom_sound_channel',
+        channelName: 'Custom Sound Channel',
+        channelDescription: 'Channel for notifications with custom sounds',
+      );
+}
+
 /// Configuration class for notification settings
 class NotificationConfig {
   final String androidIcon;
   final List<DarwinNotificationCategory>? iosCategories;
   final void Function(NotificationResponse)? onNotificationTap;
   final void Function(NotificationResponse)? onBackgroundNotificationTap;
+  final NotificationChannelConfig? defaultSimpleChannel;
+  final NotificationChannelConfig? defaultScheduledChannel;
+  final NotificationChannelConfig? defaultActionChannel;
+  final NotificationChannelConfig? defaultProgressChannel;
+  final NotificationChannelConfig? defaultCustomSoundChannel;
+
+  // Simplified channel ID setup
+  final String? defaultChannelId;
+  final String? defaultChannelName;
+  final String? defaultChannelDescription;
+  final Importance defaultImportance;
+  final Priority defaultPriority;
 
   const NotificationConfig({
     this.androidIcon = '@mipmap/ic_launcher',
     this.iosCategories,
     this.onNotificationTap,
     this.onBackgroundNotificationTap,
+    this.defaultSimpleChannel,
+    this.defaultScheduledChannel,
+    this.defaultActionChannel,
+    this.defaultProgressChannel,
+    this.defaultCustomSoundChannel,
+    // Simplified channel setup
+    this.defaultChannelId,
+    this.defaultChannelName,
+    this.defaultChannelDescription,
+    this.defaultImportance = Importance.high,
+    this.defaultPriority = Priority.high,
   });
+
+  /// Create a simple channel config from the default settings
+  NotificationChannelConfig get simpleChannelFromDefaults =>
+      NotificationChannelConfig(
+        channelId: defaultChannelId ?? 'app_default_channel',
+        channelName: defaultChannelName ?? 'App Notifications',
+        channelDescription:
+            defaultChannelDescription ?? 'Default notification channel',
+        importance: defaultImportance,
+        priority: defaultPriority,
+      );
 }
 
 /// Main notification handler class
@@ -33,6 +120,31 @@ class AppNotificationHandler {
   AppNotificationHandler._();
 
   GlobalKey<NavigatorState>? _navigatorKey;
+  NotificationChannelConfig? _simpleChannel;
+  NotificationChannelConfig? _scheduledChannel;
+  NotificationChannelConfig? _actionChannel;
+  NotificationChannelConfig? _progressChannel;
+  NotificationChannelConfig? _customSoundChannel;
+
+  /// Get the configured simple channel or default
+  NotificationChannelConfig get simpleChannel =>
+      _simpleChannel ?? DefaultChannels.simple;
+
+  /// Get the configured scheduled channel or default
+  NotificationChannelConfig get scheduledChannel =>
+      _scheduledChannel ?? DefaultChannels.scheduled;
+
+  /// Get the configured action channel or default
+  NotificationChannelConfig get actionChannel =>
+      _actionChannel ?? DefaultChannels.action;
+
+  /// Get the configured progress channel or default
+  NotificationChannelConfig get progressChannel =>
+      _progressChannel ?? DefaultChannels.progress;
+
+  /// Get the configured custom sound channel or default
+  NotificationChannelConfig get customSoundChannel =>
+      _customSoundChannel ?? DefaultChannels.customSound;
 
   /// Initialize the notification handler
   Future<void> initialize({
@@ -41,6 +153,51 @@ class AppNotificationHandler {
     bool requestPermissionsOnInit = true,
   }) async {
     _navigatorKey = navigatorKey;
+
+    // Store channel configurations - prioritize explicit channel configs,
+    // fallback to simplified default settings
+    _simpleChannel =
+        config.defaultSimpleChannel ?? config.simpleChannelFromDefaults;
+    _scheduledChannel =
+        config.defaultScheduledChannel ??
+        NotificationChannelConfig(
+          channelId: '${config.defaultChannelId ?? 'app_default'}_scheduled',
+          channelName: '${config.defaultChannelName ?? 'App'} Scheduled',
+          channelDescription:
+              'Scheduled ${config.defaultChannelDescription ?? 'notifications'}',
+          importance: config.defaultImportance,
+          priority: config.defaultPriority,
+        );
+    _actionChannel =
+        config.defaultActionChannel ??
+        NotificationChannelConfig(
+          channelId: '${config.defaultChannelId ?? 'app_default'}_actions',
+          channelName: '${config.defaultChannelName ?? 'App'} Actions',
+          channelDescription:
+              'Action ${config.defaultChannelDescription ?? 'notifications'}',
+          importance: config.defaultImportance,
+          priority: config.defaultPriority,
+        );
+    _progressChannel =
+        config.defaultProgressChannel ??
+        NotificationChannelConfig(
+          channelId: '${config.defaultChannelId ?? 'app_default'}_progress',
+          channelName: '${config.defaultChannelName ?? 'App'} Progress',
+          channelDescription:
+              'Progress ${config.defaultChannelDescription ?? 'notifications'}',
+          importance: Importance.low,
+          priority: Priority.low,
+        );
+    _customSoundChannel =
+        config.defaultCustomSoundChannel ??
+        NotificationChannelConfig(
+          channelId: '${config.defaultChannelId ?? 'app_default'}_sound',
+          channelName: '${config.defaultChannelName ?? 'App'} Custom Sound',
+          channelDescription:
+              'Custom sound ${config.defaultChannelDescription ?? 'notifications'}',
+          importance: config.defaultImportance,
+          priority: config.defaultPriority,
+        );
 
     // Initialize time zones for scheduling
     tz.initializeTimeZones();
