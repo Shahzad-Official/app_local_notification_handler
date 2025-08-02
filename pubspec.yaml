@@ -1,6 +1,6 @@
 name: app_notification_handler
 description: "A comprehensive Flutter package for handling local notifications with scheduling, permissions, and timezone support."
-version: 1.0.0
+version: 1.0.1
 publish_to: "none"
 homepage:
 
