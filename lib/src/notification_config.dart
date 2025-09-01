@@ -119,7 +119,6 @@ class AppNotificationHandler {
 
   AppNotificationHandler._();
 
-  GlobalKey<NavigatorState>? _navigatorKey;
   NotificationChannelConfig? _simpleChannel;
   NotificationChannelConfig? _scheduledChannel;
   NotificationChannelConfig? _actionChannel;
@@ -149,11 +148,8 @@ class AppNotificationHandler {
   /// Initialize the notification handler
   Future<void> initialize({
     required NotificationConfig config,
-    GlobalKey<NavigatorState>? navigatorKey,
     bool requestPermissionsOnInit = true,
   }) async {
-    _navigatorKey = navigatorKey;
-
     // Store channel configurations - prioritize explicit channel configs,
     // fallback to simplified default settings
     _simpleChannel =
@@ -282,7 +278,10 @@ class AppNotificationHandler {
   }
 
   /// Check notification permissions (simplified since permissions are requested on init)
-  Future<bool> checkNotificationPermission({bool showDialog = false}) async {
+  Future<bool> checkNotificationPermission(
+    BuildContext context, {
+    bool showDialog = false,
+  }) async {
     bool? isAllowed;
 
     if (Platform.isAndroid) {
@@ -308,10 +307,8 @@ class AppNotificationHandler {
     }
 
     // Only show dialog if explicitly requested and permission is denied
-    if (isAllowed == false &&
-        showDialog &&
-        _navigatorKey?.currentContext != null) {
-      _showPermissionDialog();
+    if (isAllowed == false && showDialog && context.mounted) {
+      _showPermissionDialog(context);
     }
 
     return isAllowed ?? false;
@@ -335,9 +332,8 @@ class AppNotificationHandler {
   }
 
   /// Show permission dialog to user
-  void _showPermissionDialog() {
-    final context = _navigatorKey?.currentContext;
-    if (context == null) return;
+  void _showPermissionDialog(BuildContext context) {
+    if (!context.mounted) return;
 
     showDialog(
       context: context,
